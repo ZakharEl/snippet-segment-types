@@ -8,6 +8,7 @@ use std::fmt;
 
 /// Text typed in by user.
 /// Also serves what visual studio code and textmate describes as tabs and mirrors.
+#[derive(Debug)]
 pub struct Placeholder(
 	/// Content of placeholder.
 	/// Is vec of segments since placeholder can contain not merely just plain text but also things like other placeholders.
@@ -26,7 +27,7 @@ impl InteractiveSegment for Placeholder {
 	fn get_type(&self) -> &str {
 		"placeholder"
 	}
-	fn nested_segments(&self) -> Option<&Vec<Segment>> {
+	fn nested_printed_segments(&self) -> Option<&Vec<Segment>> {
 		Some(&self.0)
 	}
 }
@@ -34,6 +35,7 @@ impl Field for Placeholder {
 }
 
 /// Choice of text selected by user from a menu of several.
+#[derive(Debug)]
 pub struct Choice(
 	/// Index of the chosen choice from within the outer vec of the field below.
 	pub usize,
@@ -58,13 +60,9 @@ impl InteractiveSegment for Choice {
 	fn get_type(&self) -> &str {
 		"choice"
 	}
-	fn nested_segments(&self) -> Option<&Vec<Segment>> {
+	fn nested_printed_segments(&self) -> Option<&Vec<Segment>> {
 		let Choice(choice, choices) = self;
-		if let Some(choice) = choices.get(*choice) {
-			Some(choice)
-		} else {
-			None
-		}
+		choices.get(*choice)
 	}
 }
 impl Field for Choice {
@@ -84,6 +82,14 @@ fn get_variable_value(name: &str) -> String {
 		value
 	} else {
 		String::new()
+	}
+}
+impl fmt::Debug for Variable {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		f.debug_struct("Variable")
+		.field("name", &self.name)
+		.field("value", &self.value)
+		.finish()
 	}
 }
 impl fmt::Display for Variable {
@@ -113,6 +119,7 @@ impl Programic for Variable {
 
 /// [Shell Code](https://macromates.com/manual/en/snippets#interpolated_shell_code) to run.
 /// Output will be the string show/expanded within the snippet
+#[derive(Debug)]
 pub struct Code {
 	pub code_to_run: String,
 	pub output: String
@@ -229,5 +236,26 @@ mod tests {
 		snip.trim_empty_tabs();
 		println!("tab 1 count: {}", Rc::strong_count(&snip.tabs[0].field));
 		println!("number of tabs: {}", snip.tabs.len());
+	}
+	#[test]
+	fn test_debug_impl() {
+		let mut var = Variable {
+			name: String::from("test"),
+			value: String::new(),
+			get_from_client: None
+		};
+		var.evaluate();
+		println!("{:#?}", var);
+		let var = Rc::new(RefCell::new(var));
+		let var_clone = Rc::clone(&var);
+		let text = Segment::Text(String::from("Hello! "));
+		println!("{:#?}", text);
+		let mut snip = Snippet {
+			body: vec![text, Segment::Interactive(var)],
+			tabs: vec![],
+			program_filled_text: vec![var_clone],
+			references: vec![],
+		};
+		println!("{:#?}", snip);
 	}
 }
